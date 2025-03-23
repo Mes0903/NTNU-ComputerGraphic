@@ -18,21 +18,6 @@ var FSHADER_SOURCE = `
         }
     `;
 
-function createProgram(gl, vertexShader, fragmentShader){
-    //create the program and attach the shaders
-    var program = gl.createProgram();
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
-    gl.linkProgram(program);
-    
-    //if success, return the program. if not, log the program info, and delete it.
-    if(gl.getProgramParameter(program, gl.LINK_STATUS)){
-        return program;
-    }
-    alert(gl.getProgramInfoLog(program) + "");
-    gl.deleteProgram(program);
-}
-
 function compileShader(gl, vShaderText, fShaderText){
     //////Build vertex and fragment shader objects
     var vertexShader = gl.createShader(gl.VERTEX_SHADER)
