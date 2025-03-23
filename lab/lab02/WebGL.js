@@ -1,18 +1,20 @@
 var VSHADER_SOURCE = `
-        uniform vec4 u_Position;
-        void main(){
-            gl_Position = u_Position;
-            gl_PointSize = 10.0;
-        }    
-    `;
+  attribute vec4 a_Position;
+  attribute vec4 a_Color;
+  varying vec4 v_Color;
+  void main(){
+    gl_Position = a_Position;
+    v_Color = a_Color;
+  }
+`;
 
 var FSHADER_SOURCE = `
-        precision mediump float;
-        uniform vec4 u_FragColor;
-        void main(){
-            gl_FragColor = u_FragColor;
-        }
-    `;
+  precision mediump float;
+  varying vec4 v_Color;
+  void main(){
+    gl_FragColor = v_Color;
+  }
+`;
 
 function compileShader(gl, vShaderText, fShaderText){
     //////Build vertex and fragment shader objects
@@ -63,57 +65,52 @@ function main(){
  
     gl.useProgram(renderProgram);
 
-    renderProgram.u_Position = gl.getUniformLocation(renderProgram, 'u_Position');
-    renderProgram.u_FragColor = gl.getUniformLocation(renderProgram, 'u_FragColor');
+    var n = initVertexBuffers(gl, renderProgram);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    //mouse event
-    canvas.onmousedown = function(ev){click(ev, gl, canvas, renderProgram.u_Position, renderProgram.u_FragColor)}
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, n); //you are NOT allowed to change this line
 }
 
-g_points = []; // store all clicked positions
-g_colors = []; // store colors of each points
-function click(ev, gl, canvas, u_Position, u_FragColor){
-    var x = ev.clientX;
-    var y = ev.clientY;
-    var rect = ev.target.getBoundingClientRect();
-    console.log("x: " + x);
-    console.log("y: " + y);
-    console.log("rect. left, top, width, height: " + rect.left + " "  + rect.top + " " + rect.width + " " + rect.height );
+function initVertexBuffers(gl, program){
+  var vertices = new Float32Array([
+      // x,    y,      r,   g,   b
+      -0.5,  0.5,    1.0, 0.0, 0.0,
+      -0.5, -0.5,    1.0, 1.0, 1.0,
+       0.5,  0.5,    1.0, 1.0, 1.0,
+       0.5, -0.5,    0.0, 0.0, 1.0 
+  ]);
+  
+  var n = 4;
+  var vertexBuffer = gl.createBuffer();
+  if (!vertexBuffer) {
+      console.error('Failed to create the buffer object');
+      return -1;
+  }
+  
+  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+  
+  var FSIZE = vertices.BYTES_PER_ELEMENT;
+  
+  var a_Position = gl.getAttribLocation(program, 'a_Position');
+  if(a_Position < 0){
+      console.error('Failed to get the storage location of a_Position');
+      return -1;
+  }
+  gl.vertexAttribPointer(a_Position, 2, gl.FLOAT, false, FSIZE * 5, 0);
+  gl.enableVertexAttribArray(a_Position);
+  
+  // Get the storage location of a_Color attribute in the shader.
+  var a_Color = gl.getAttribLocation(program, 'a_Color');
+  if(a_Color < 0){
+      console.error('Failed to get the storage location of a_Color');
+      return -1;
+  }
 
-    //Todo-1: convert x and y to canvas space and normal them to (-1, 1) for webgl to use
-    x = ((x - rect.left) - canvas.width / 2) / (canvas.width / 2);
-    y = (canvas.height / 2 - (y - rect.top)) / (canvas.height / 2);
-
-    //put mouse click position to g_points
-    g_points.push([x, y]); 
-
-    //Todo-2: calculate color of the point
-    if (x >= 0.0 && y >= 0.0) {
-        g_colors.push([1.0, 0.0, 0.0, 1.0]);  // red
-    } else if (x < 0.0 && y < 0.0) {
-        g_colors.push([0.0, 1.0, 0.0, 1.0]);  // green
-    } else if (x < 0.0 && y >= 0.0) {
-        g_colors.push([0.0, 0.0, 1.0, 1.0]);  // blue
-    } else {
-        g_colors.push([1.0, 1.0, 1.0, 1.0]);  // white
-    }
-
-    // Clear canvas by background color before drawing
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-
-    // TODO-3: draw all points in "g_points" one-by-one
-    var len = g_points.length;
-    for(var i = 0; i < len; i++){
-        var xy = g_points[i];
-        var rgba = g_colors[i];
-
-        gl.uniform4f(u_Position, xy[0], xy[1], 0.0, 1.0);
-        gl.uniform4f(u_FragColor, rgba[0], rgba[1], rgba[2], rgba[3]);
-
-        gl.drawArrays(gl.POINTS, 0, 1);//draw a point
-    }
+  gl.vertexAttribPointer(a_Color, 3, gl.FLOAT, false, FSIZE * 5, FSIZE * 2);
+  gl.enableVertexAttribArray(a_Color);
+  
+  return n;
 }
