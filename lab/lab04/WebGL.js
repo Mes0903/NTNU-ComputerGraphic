@@ -18,7 +18,6 @@ var FSHADER_SOURCE = `
         }
     `;
 
-
 function createProgram(gl, vertexShader, fragmentShader){
     //create the program and attach the shaders
     var program = gl.createProgram();
@@ -128,7 +127,6 @@ var triangleColorA = [0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0 ]; //green tro
 var triangleVerticesB = [0.0, 0.0, 0.0, -0.1, -0.5, 0.0, 0.1, -0.5, 0.0]; //green rotating triangle vertices
 var triangleColorB= [0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0 ]; //green trotating riangle color
 
-   
 var triangle1XMove = 0;
 var triangle1YMove = 0;
 var triangle2Angle = 125;
@@ -138,7 +136,6 @@ var grab = false;
 var canGrab = false;
 
 circle1Angle = 0; //the angle of the triangle on the circle
-
 
 /////// create circle model
 var circleVertices = []
@@ -155,7 +152,6 @@ for (i = 0; i <= 1000; i++){
     circleColorsTouch.push(0, 1, 0); //color when the circle connect with the triangle corner
     circleColorsGrab.push(0, 0.5, 0); //color when the circle is grabbed by the triangle corner
 }
-
 
 function main(){
     //////Get the canvas context
@@ -212,6 +208,9 @@ function main(){
             ///// TODO: when the user press 'g' or 'G'
             /////       1. consider whether the triangle corner and the circle touch each other
             /////       2. consider if the circle be grabbed by the triangle corner
+            if (canGrab || grab) {
+              grab = !grab;
+            }
             draw(gl)
         }
     });
@@ -246,31 +245,51 @@ function draw(gl)
     transformMat.translate(0.0, 0.2, 0, 1);
     transformMat.rotate(triangle2Angle, 0, 0, 1);
     transformMat.scale(1, triangle2HeightScale, 1);
-    initAttributeVariable(gl, program.a_Position, triangleModelB.vertexBuffer);//set triangle  vertex to shader varibale
-    initAttributeVariable(gl, program.a_Color, triangleModelB.colorBuffer); //set triangle  color to shader varibale
+    initAttributeVariable(gl, program.a_Position, triangleModelB.vertexBuffer);//set triangle vertex to shader varibale
+    initAttributeVariable(gl, program.a_Color, triangleModelB.colorBuffer); //set triangle color to shader varibale
     gl.uniformMatrix4fv(program.u_modelMatrix, false, transformMat.elements);//pass current transformMat to shader
     gl.drawArrays(gl.TRIANGLES, 0, triangleModelB.numVertices);//draw the triangle 
 
-    
     ///////TODO_goal: calculate whenther the triangle corner and the circle touch each other
     ///////      show the circle by different color according to the touch-grab conditions
     ///////      Draw the circle and its triangle and the proper locations
 
-
     ////triangle corner coordinate in world space
     const triangleCornerWorld = transformMat.multiplyVector4(new Vector4(triangleVerticesB.slice(3, 6).concat(1)));
-    ////TODO1: circle coordinate in world space
+
+    // Compute circle center from transformMatCircle1
+    let circleCenterX = transformMatCircle1.elements[12];
+    let circleCenterY = transformMatCircle1.elements[13];
+
+    // Calculate the squared distance between the triangle corner and the circle center
+    let dx = triangleCornerWorld.elements[0] - circleCenterX;
+    let dy = triangleCornerWorld.elements[1] - circleCenterY;
+    let distSq = dx * dx + dy * dy;
+
+    // Decide which circle model to use based on interaction:
+    let chosenCircleModel;
+    if (grab) {
+        // In grabbed mode: attach circle to triangle corner and use dark green
+        transformMatCircle1.setTranslate(triangleCornerWorld.elements[0], triangleCornerWorld.elements[1], 0);
+        chosenCircleModel = circleModelGrab;
+        canGrab = true; // ensure canGrab stays true during grabbed mode
+    } else if (distSq < circleRadius * circleRadius) {
+        // When the triangle corner touches the circle: light green and allow grabbing
+        chosenCircleModel = circleModelTouch;
+        canGrab = true;
+    } else {
+        // Otherwise: normal red circle and no grab available
+        chosenCircleModel = circleModel;
+        canGrab = false;
+    }
+
     transformMat = new Matrix4(transformMatCircle1)
-    ////TODO2: check whether the triangle corner and the circle touch each other
-    ///////TODO2-hint: (x1-x2)^2 + (y1-y2)^2 <= r^2
-    ////TODO3: different interaction processes for the circle and the triangle corner, there are three cases
-
-    initAttributeVariable(gl, program.a_Position, circleModel.vertexBuffer);//set circle  vertex to shader varibale
-    initAttributeVariable(gl, program.a_Color, circleModel.colorBuffer); //set circle normal color to shader varibale
+    initAttributeVariable(gl, program.a_Position, chosenCircleModel.vertexBuffer);//set circle  vertex to shader varibale
+    initAttributeVariable(gl, program.a_Color, chosenCircleModel.colorBuffer); //set circle normal color to shader varibale
     gl.uniformMatrix4fv(program.u_modelMatrix, false, transformMat.elements);//pass current transformMat to shader
-    gl.drawArrays(gl.TRIANGLES, 0, circleModel.numVertices);//draw the triangle 
+    gl.drawArrays(gl.TRIANGLES, 0, chosenCircleModel.numVertices);//draw the triangle 
 
-    circle1Angle ++; //keep changing the angle of the triangle
+    circle1Angle++; //keep changing the angle of the triangle
     transformMat.rotate(circle1Angle, 0, 0, 1);
     initAttributeVariable(gl, program.a_Position, triangleModelB.vertexBuffer);//set triangle  vertex to shader varibale
     initAttributeVariable(gl, program.a_Color, triangleModelB.colorBuffer); //set triangle  color to shader varibale
