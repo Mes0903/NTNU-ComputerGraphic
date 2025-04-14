@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>2D Robot with Grabbing (Scroll Input)</title>
+    <style>
+      body {
+        background: #f7f7f7;
+        font-family: sans-serif;
+      }
+      #controls {
+        margin-top: 10px;
+      }
+      .sliderContainer {
+        margin: 10px 0;
+      }
+      label {
+        display: block;
+      }
+    </style>
+  </head>
+  <body onload="main()">
+    <canvas id="webgl" width="600" height="600">
+      Please use a browser that supports "canvas"
+    </canvas>
+    <div id="controls">
+      <h3>Controls</h3>
+      <!-- Robot translation controls -->
+      <div class="sliderContainer">
+        <label>Robot X: <span id="robotXValue">0.00</span></label>
+        <input id="robotXSlider" type="range" min="-1" max="1" step="0.01" value="0" />
+      </div>
+      <div class="sliderContainer">
+        <label>Robot Y: <span id="robotYValue">-0.40</span></label>
+        <input id="robotYSlider" type="range" min="-1" max="1" step="0.01" value="-0.4" />
+      </div>
+      <!-- Robot joint controls -->
+      <div class="sliderContainer">
+        <label>Robot Joint 1 (Base Arm) Angle: <span id="joint1Value">0</span>°</label>
+        <input id="joint1Slider" type="range" min="-180" max="180" step="1" value="0" />
+      </div>
+      <div class="sliderContainer">
+        <label>Robot Joint 2 (Forearm) Angle: <span id="joint2Value">30</span>°</label>
+        <input id="joint2Slider" type="range" min="-180" max="180" step="1" value="30" />
+      </div>
+      <div class="sliderContainer">
+        <label>Robot Joint 3 (Claw) Angle: <span id="joint3Value">0</span>°</label>
+        <input id="joint3Slider" type="range" min="-180" max="180" step="1" value="0" />
+      </div>
+      <!-- Object joint controls -->
+      <div class="sliderContainer">
+        <label>Object Joint 1 Angle: <span id="objJoint1Value">0</span>°</label>
+        <input id="objJoint1Slider" type="range" min="-180" max="180" step="1" value="0" />
+      </div>
+      <div class="sliderContainer">
+        <label>Object Joint 2 Angle: <span id="objJoint2Value">0</span>°</label>
+        <input id="objJoint2Slider" type="range" min="-180" max="180" step="1" value="0" />
+      </div>
+      <!-- Zoom control -->
+      <div class="sliderContainer">
+        <label>Zoom (Scene Scale): <span id="zoomValue">1.00</span></label>
+        <input id="zoomSlider" type="range" min="0.5" max="2" step="0.01" value="1" />
+      </div>
+      <!-- Grab toggle button -->
+      <div class="sliderContainer">
+        <button id="grabButton">Grab Object</button>
+      </div>
+      <p>
+        <strong>Note:</strong> To grab the object, move the robot's claw (via the sliders)
+        so that it is close to the object grab point (shown in white) and then click the <em>Grab Object</em>
+        button. Clicking again releases the object.
+      </p>
+    </div>
+    <!-- Include the utility scripts -->
+    <script src="cuon-matrix.js"></script>
+    <script src="webgl-utils.js"></script>
+    <script src="WebGL.js"></script>
+  </body>
+</html>
