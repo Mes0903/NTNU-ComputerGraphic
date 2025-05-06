@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>3D Robot with Grabbing</title>
+    <style>
+      body {
+        background: #f7f7f7;
+        font-family: sans-serif;
+        margin: 0;
+        padding: 20px;
+      }
+      .container {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+      }
+      canvas {
+        border: 1px solid #333;
+        margin-right: 20px;
+      }
+      #controls {
+        width: 350px;
+        background-color: #e0e0e0;
+        padding: 15px;
+        border-radius: 5px;
+        max-height: 800px;
+        overflow-y: auto;
+      }
+      .sliderContainer {
+        margin: 10px 0;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+      }
+      input[type="range"] {
+        width: 100%;
+      }
+      button {
+        padding: 8px 16px;
+        margin-right: 10px;
+        cursor: pointer;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+      }
+      button:hover {
+        background-color: #45a049;
+      }
+      h3 {
+        margin-top: 15px;
+        margin-bottom: 10px;
+        color: #333;
+      }
+      .control-section {
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-bottom: 10px;
+        border-radius: 5px;
+        background-color: #f5f5f5;
+      }
+      .note {
+        font-size: 0.9em;
+        padding: 10px;
+        background-color: #fff3cd;
+        border-left: 4px solid #ffc107;
+        margin-top: 15px;
+      }
+    </style>
+  </head>
+  <body onload="main()">
+    <div class="container">
+      <canvas id="webgl" width="800" height="800">
+        Please use a browser that supports the canvas element.
+      </canvas>
+      
+      <div id="controls">
+        <h3>3D Robot Scene Controls</h3>
+        
+        <div class="control-section">
+          <h3>Robot Position</h3>
+          <div class="sliderContainer">
+            <label>Robot X: <span id="robotXValue">0.00</span></label>
+            <input id="robotXSlider" type="range" min="-4" max="4" step="0.1" value="0" />
+          </div>
+          <div class="sliderContainer">
+            <label>Robot Y: <span id="robotYValue">0.00</span></label>
+            <input id="robotYSlider" type="range" min="0" max="2" step="0.1" value="0" />
+          </div>
+          <div class="sliderContainer">
+            <label>Robot Z: <span id="robotZValue">0.00</span></label>
+            <input id="robotZSlider" type="range" min="-4" max="4" step="0.1" value="0" />
+          </div>
+        </div>
+        
+        <div class="control-section">
+          <h3>Robot Joints</h3>
+          <div class="sliderContainer">
+            <label>Base Joint: <span id="joint1Value">0</span>°</label>
+            <input id="joint1Slider" type="range" min="-180" max="180" step="1" value="0" />
+          </div>
+          <div class="sliderContainer">
+            <label>Middle Joint: <span id="joint2Value">0</span>°</label>
+            <input id="joint2Slider" type="range" min="-180" max="180" step="1" value="0" />
+          </div>
+          <div class="sliderContainer">
+            <label>Upper Joint: <span id="joint3Value">0</span>°</label>
+            <input id="joint3Slider" type="range" min="-180" max="180" step="1" value="0" />
+          </div>
+        </div>
+        
+        <div class="control-section">
+          <h3>Object Joints</h3>
+          <div class="sliderContainer">
+            <label>Radar Mount: <span id="objJoint1Value">0</span>°</label>
+            <input id="objJoint1Slider" type="range" min="-180" max="180" step="1" value="0" />
+          </div>
+          <div class="sliderContainer">
+            <label>Radar Dish: <span id="objJoint2Value">0</span>°</label>
+            <input id="objJoint2Slider" type="range" min="-180" max="180" step="1" value="0" />
+          </div>
+        </div>
+        
+        <div class="control-section">
+          <h3>Camera</h3>
+          <div class="sliderContainer">
+            <label>Zoom: <span id="zoomValue">0.50</span></label>
+            <input id="zoomSlider" type="range" min="0.1" max="2.0" step="0.01" value="0.5" />
+          </div>
+        </div>
+        
+        <div class="control-section">
+          <h3>Actions</h3>
+          <div class="sliderContainer">
+            <button id="grabButton">Grab Object</button>
+          </div>
+        </div>
+        
+        <div class="control-section">
+          <h3>Keyboard Controls</h3>
+          <p>
+            <strong>W/S:</strong> Move forward/backward<br>
+            <strong>A/D:</strong> Move left/right<br>
+            <strong>F:</strong> Toggle fly mode<br>
+            <strong>1-5:</strong> Select joint (1-3 for robot, 4-5 for object)<br>
+            <strong>Arrow Keys:</strong> Rotate selected joint<br>
+            <strong>Q:</strong> Exit joint control mode<br>
+            <strong>G:</strong> Grab/release object when in range
+          </p>
+        </div>
+        
+        <div class="control-section">
+          <h3>Mouse Controls</h3>
+          <p>
+            <strong>Click + Drag:</strong> Rotate view<br>
+            <strong>Mouse Wheel:</strong> Zoom in/out
+          </p>
+        </div>
+        
+        <div class="note">
+          <p>
+            <strong>Note:</strong> To grab the object, move the robot's arm close to
+            the object and press the "Grab Object" button or press G.
+            The object will change color when it's in range.
+          </p>
+        </div>
+      </div>
+    </div>
+    
+    <script src="cuon-matrix.js"></script>
+    <script src="WebGL.js"></script>
+  </body>
+</html>
