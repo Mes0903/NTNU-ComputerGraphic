@@ -1,3 +1,5 @@
+# The question
+
 In this final project, you are going to create a nice-looking scene which includes multiple 3D objects.
 
 Required User Interaction:
@@ -20,38 +22,6 @@ Pick 2 out of 3:
 
 You are not allowed to use high-level 3D rendering library, such as three.js. You can use the cuon-matrix.js for matrix/vector computation
 
-我有上傳了一個 index.html，裡面有個 canvas，然後我上傳了我之前一個用 cpp 寫的作業，我想用它來改成作業要用的 javascript
+# My impl
 
-專案的架構如下：
-
-```
-PS C:\Users\Mes\Documents\MesRepo\NTNU-ComputerGraphic> tree /f .\final\
-列出資料夾 PATH
-磁碟區序號為 BA15-F03A
-C:\USERS\MES\DOCUMENTS\MESREPO\NTNU-COMPUTERGRAPHIC\FINAL
-│  bak.js
-│  camera.js
-│  cuon-matrix.js
-│  index.html
-│  main.js
-│  NTNU_ComputerGraphics_FinalProject__113_2.pdf
-│  object.js
-│  README.md
-│  shader.js
-│
-└─assets
-    ├─spot
-    │      hmap.jpg
-    │      README.txt
-    │      spot_texture.png
-    │      spot_triangulated_good.obj
-    │
-    └─Yokohama2
-            negx.jpg
-            negy.jpg
-            negz.jpg
-            posx.jpg
-            posy.jpg
-            posz.jpg
-            readme.txt
-```
+Generally, I just transformed the GAMES101 HW3 I wrote before([link](https://github.com/Mes0903/GAMES101-Windows)) into javascript, and then fetch up the requirement that didnt be asked in GAMES101, like the cubemap.
