@@ -50,6 +50,7 @@ function main() {
     u_CubeMap: gl.getUniformLocation(mainProgram, 'u_CubeMap'),
     u_UseTexture: gl.getUniformLocation(mainProgram, 'u_UseTexture'),
     u_UseReflection: gl.getUniformLocation(mainProgram, 'u_UseReflection'),
+    u_ShowNormals: gl.getUniformLocation(mainProgram, 'u_ShowNormals'),
     u_ReflectionStrength: gl.getUniformLocation(mainProgram, 'u_ReflectionStrength')
   };
 
@@ -212,7 +213,11 @@ function main() {
     // Update matrices
     modelMatrix.setIdentity();
     mvpMatrix.set(camera.proj).multiply(camera.view).multiply(modelMatrix);
-    normalMatrix.setInverseOf(modelMatrix).transpose();
+    
+    // For normals, use view space to match GAMES101 implementation
+    const viewModelMatrix = new Matrix4();
+    viewModelMatrix.set(camera.view).multiply(modelMatrix);
+    normalMatrix.setInverseOf(viewModelMatrix).transpose();
 
     // Set uniforms based on rendering mode
     gl.uniformMatrix4fv(mainLocations.u_MvpMatrix, false, mvpMatrix.elements);
@@ -234,21 +239,25 @@ function main() {
         gl.uniform3f(mainLocations.u_Color, 1, 1, 1);
         gl.uniform1i(mainLocations.u_UseTexture, true);
         gl.uniform1i(mainLocations.u_UseReflection, false);
+        gl.uniform1i(mainLocations.u_ShowNormals, false);
         break;
       case 'normal':
         gl.uniform3f(mainLocations.u_Color, 1, 1, 1);
         gl.uniform1i(mainLocations.u_UseTexture, false);
         gl.uniform1i(mainLocations.u_UseReflection, false);
+        gl.uniform1i(mainLocations.u_ShowNormals, true);
         break;
       case 'phong':
         gl.uniform3f(mainLocations.u_Color, 0.8, 0.8, 0.9);
         gl.uniform1i(mainLocations.u_UseTexture, false);
         gl.uniform1i(mainLocations.u_UseReflection, false);
+        gl.uniform1i(mainLocations.u_ShowNormals, false);
         break;
       case 'reflection':
         gl.uniform3f(mainLocations.u_Color, 1, 1, 1);
         gl.uniform1i(mainLocations.u_UseTexture, true);
         gl.uniform1i(mainLocations.u_UseReflection, reflectionParams.enabled);
+        gl.uniform1i(mainLocations.u_ShowNormals, false);
         gl.uniform1f(mainLocations.u_ReflectionStrength, reflectionParams.strength);
         break;
     }

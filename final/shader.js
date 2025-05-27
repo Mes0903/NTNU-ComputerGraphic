@@ -1,4 +1,3 @@
-// Vertex shader for regular objects with cube mapping support
 const VSHADER_SOURCE = `
 attribute vec4 a_Position;
 attribute vec4 a_Normal;
@@ -33,6 +32,7 @@ uniform sampler2D u_Texture;
 uniform samplerCube u_CubeMap;
 uniform bool u_UseTexture;
 uniform bool u_UseReflection;
+uniform bool u_ShowNormals;
 uniform float u_ReflectionStrength;
 varying vec3 v_Normal;
 varying vec3 v_Position;
@@ -41,6 +41,15 @@ varying vec2 v_TexCoord;
 
 void main() {
   vec3 N = normalize(v_Normal);
+  
+  // Normal visualization mode
+  if (u_ShowNormals) {
+    // Convert normal from [-1,1] to [0,1] range for visualization
+    vec3 normalColor = (N + 1.0) * 0.5;
+    gl_FragColor = vec4(normalColor, 1.0);
+    return;
+  }
+  
   vec3 L = normalize(u_LightPosition - v_Position);
   float nDotL = max(dot(N, L), 0.0);
   
