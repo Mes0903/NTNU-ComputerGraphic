@@ -24,4 +24,4 @@ You are not allowed to use high-level 3D rendering library, such as three.js. Yo
 
 # My impl
 
-Generally, I just transformed the GAMES101 HW3 I wrote before([link](https://github.com/Mes0903/GAMES101-Windows)) into javascript, and then fetch up the requirement that didnt be asked in GAMES101, like the cubemap.
+Generally, I just transformed the GAMES101 HW3 I wrote before([link](https://github.com/Mes0903/GAMES101-Windows)) into javascript, and then fetch up the requirement that didnt be asked in GAMES101, like the cubemap and shadow mapping.
