@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>圖學期末</title>
+    <title>Computer Graphics Final Project - 3D Scene with Cube Mapping</title>
     <style>
       body {
         background: #f7f7f7;
@@ -38,7 +38,7 @@
         display: block;
         margin-bottom: 5px;
       }
-      input[type="range"], input[type="radio"] {
+      input[type="range"], input[type="radio"], input[type="checkbox"] {
         margin-right: 8px;
       }
       button {
@@ -65,6 +65,17 @@
         border-left: 4px solid #ffc107;
         margin-top: 15px;
       }
+      .description {
+        background-color: #d4edda;
+        border-left: 4px solid #28a745;
+        padding: 15px;
+        margin-top: 20px;
+        border-radius: 5px;
+      }
+      .controls-label {
+        font-weight: bold;
+        margin-bottom: 8px;
+      }
     </style>
   </head>
   <body onload="main()">
@@ -75,35 +86,106 @@
       
       <div id="controls">
         <div class="control-section">
-          <h3>模式選擇</h3>
+          <h3>Rendering Mode</h3>
           <div>
             <input type="radio" id="texture" name="mode" value="texture" checked>
-            <label for="texture">texture</label>
+            <label for="texture">Texture Mapping</label>
           </div>
           <div>
             <input type="radio" id="normal" name="mode" value="normal">
-            <label for="normal">normal</label>
+            <label for="normal">Normal Visualization</label>
           </div>
           <div>
             <input type="radio" id="phong" name="mode" value="phong">
-            <label for="phong">phong</label>
+            <label for="phong">Phong Shading</label>
           </div>
           <div>
             <input type="radio" id="bump" name="mode" value="bump">
-            <label for="bump">bump</label>
+            <label for="bump">Bump Mapping</label>
           </div>
           <div>
-            <input type="radio" id="displacement" name="mode" value="displacement">
-            <label for="displacement">displacement</label>
-          </div>
-
-          <h3>視角</h3>
-          <div class="camera-toggle" style="display:inline-flex; align-items:center; margin-top:12px;">
-            <input type="checkbox" id="viewMode" checked style="margin:0 6px 0 0;">
-            <label for="viewMode" style="margin:0;">第一人稱</label>
+            <input type="radio" id="reflection" name="mode" value="reflection">
+            <label for="reflection">Cube Map Reflection</label>
           </div>
         </div>
+
+        <div class="control-section">
+          <h3>Camera Controls</h3>
+          <div class="camera-toggle" style="display:inline-flex; align-items:center; margin-top:12px;">
+            <input type="checkbox" id="viewMode" checked style="margin:0 6px 0 0;">
+            <label for="viewMode" style="margin:0;">First Person View</label>
+          </div>
+          <div class="controls-label" style="margin-top: 15px;">Movement Controls:</div>
+          <div style="font-size: 0.9em; color: #666;">
+            • WASD keys to move<br>
+            • Mouse to look around<br>
+            • First person: automatic pointer lock<br>
+            • Third person: click and drag to rotate
+          </div>
+        </div>
+
+        <div class="control-section">
+          <h3>Reflection Settings</h3>
+          <label for="reflectionStrength">Reflection Strength:</label>
+          <input type="range" id="reflectionStrength" min="0" max="1" step="0.1" value="0.3">
+          <span id="reflectionValue">0.3</span>
+          
+          <div style="margin-top: 10px;">
+            <input type="checkbox" id="enableReflection" checked>
+            <label for="enableReflection">Enable Cube Map Reflection</label>
+          </div>
+        </div>
+
+        <div class="control-section">
+          <h3>Lighting Controls</h3>
+          <label for="ambientStrength">Ambient:</label>
+          <input type="range" id="ambientStrength" min="0" max="1" step="0.1" value="0.2">
+          <span id="ambientValue">0.2</span><br>
+          
+          <label for="diffuseStrength">Diffuse:</label>
+          <input type="range" id="diffuseStrength" min="0" max="1" step="0.1" value="0.7">
+          <span id="diffuseValue">0.7</span><br>
+          
+          <label for="specularStrength">Specular:</label>
+          <input type="range" id="specularStrength" min="0" max="1" step="0.1" value="0.5">
+          <span id="specularValue">0.5</span><br>
+          
+          <label for="shininess">Shininess:</label>
+          <input type="range" id="shininess" min="1" max="128" step="1" value="32">
+          <span id="shininessValue">32</span>
+        </div>
       </div>
+    </div>
+
+    <div class="description">
+      <h3>3D Scene with Environment Cube Mapping</h3>
+      <p><strong>Project Features:</strong></p>
+      <ul>
+        <li><strong>Environment Cube Mapping:</strong> Realistic skybox using Yokohama environment textures</li>
+        <li><strong>Cube Map Reflections:</strong> Objects reflect the surrounding environment</li>
+        <li><strong>Phong Lighting Model:</strong> Ambient, diffuse, and specular lighting with adjustable parameters</li>
+        <li><strong>Texture Mapping:</strong> High-quality texture applied to 3D models</li>
+        <li><strong>Dual Camera System:</strong> Switch between first-person and third-person views</li>
+        <li><strong>Interactive Controls:</strong> Real-time adjustment of lighting and reflection parameters</li>
+      </ul>
+      
+      <p><strong>How to Use:</strong></p>
+      <ul>
+        <li>Use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> keys to move around the scene</li>
+        <li>Move your mouse to look around (automatic in first-person, click-drag in third-person)</li>
+        <li>Toggle between first-person and third-person view using the checkbox</li>
+        <li>Adjust rendering modes to see different visual effects</li>
+        <li>Modify lighting and reflection settings using the control panel</li>
+      </ul>
+      
+      <p><strong>Technical Implementation:</strong></p>
+      <ul>
+        <li>WebGL with custom shaders for rendering</li>
+        <li>Cube map texture loading and sampling</li>
+        <li>Real-time reflection vector calculation</li>
+        <li>Phong lighting model implementation</li>
+        <li>Interactive camera controls with pointer lock API</li>
+      </ul>
     </div>
     
     <script src="cuon-matrix.js"></script>
