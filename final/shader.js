@@ -1,7 +1,9 @@
+// Vertex shader for regular objects with cube mapping support
 const VSHADER_SOURCE = `
 attribute vec4 a_Position;
 attribute vec4 a_Normal;
 attribute vec2 a_TexCoord;
+attribute vec3 a_Color;
 uniform mat4 u_MvpMatrix;
 uniform mat4 u_ModelMatrix;
 uniform mat4 u_NormalMatrix;
@@ -10,11 +12,13 @@ varying vec3 v_Normal;
 varying vec3 v_Position;
 varying vec3 v_Reflect;
 varying vec2 v_TexCoord;
+varying vec3 v_Color;
 void main() {
   gl_Position = u_MvpMatrix * a_Position;
   v_Position = (u_ModelMatrix * a_Position).xyz;
   v_Normal = normalize((u_NormalMatrix * a_Normal).xyz);
   v_TexCoord = a_TexCoord;
+  v_Color = a_Color;
   
   // Calculate reflection vector for cube mapping
   vec3 eyeDirection = normalize(v_Position - u_EyePosition);
@@ -33,11 +37,13 @@ uniform samplerCube u_CubeMap;
 uniform bool u_UseTexture;
 uniform bool u_UseReflection;
 uniform bool u_ShowNormals;
+uniform bool u_UseVertexColors;
 uniform float u_ReflectionStrength;
 varying vec3 v_Normal;
 varying vec3 v_Position;
 varying vec3 v_Reflect;
 varying vec2 v_TexCoord;
+varying vec3 v_Color;
 
 void main() {
   vec3 N = normalize(v_Normal);
@@ -53,20 +59,25 @@ void main() {
   vec3 L = normalize(u_LightPosition - v_Position);
   float nDotL = max(dot(N, L), 0.0);
   
-  // Base color from texture or uniform color
-  vec3 baseColor = u_Color;
+  // Base color - use vertex colors for diffuse material like GAMES101 version
+  vec3 baseColor = u_UseVertexColors ? v_Color : u_Color;
   if (u_UseTexture) {
     baseColor = texture2D(u_Texture, v_TexCoord).rgb;
   }
   
-  // Lighting calculations
+  // Lighting calculations using Blinn-Phong model
   vec3 ambient = u_Ka * baseColor;
   vec3 diffuse = u_Kd * baseColor * nDotL;
   
-  vec3 V = normalize(u_ViewPosition - v_Position);
-  vec3 R = reflect(-L, N);
-  float spec = (nDotL > 0.0) ? pow(max(dot(R, V), 0.0), u_Shininess) : 0.0;
-  vec3 specular = u_Ks * spec * vec3(1.0);
+  // Blinn-Phong specular calculation
+  vec3 specular = vec3(0.0);
+  if (nDotL > 0.0) {
+    vec3 V = normalize(u_ViewPosition - v_Position);
+    vec3 H = normalize(L + V);  // Halfway vector
+    float nDotH = max(dot(N, H), 0.0);
+    float spec = pow(nDotH, u_Shininess);
+    specular = u_Ks * spec * vec3(1.0);
+  }
   
   vec3 finalColor = ambient + diffuse + specular;
   

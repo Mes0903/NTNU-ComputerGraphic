@@ -97,7 +97,7 @@
           </div>
           <div>
             <input type="radio" id="phong" name="mode" value="phong">
-            <label for="phong">Phong Shading</label>
+            <label for="phong">Blinn-Phong Shading</label>
           </div>
           <div>
             <input type="radio" id="bump" name="mode" value="bump">
@@ -139,20 +139,20 @@
         <div class="control-section">
           <h3>Lighting Controls</h3>
           <label for="ambientStrength">Ambient:</label>
-          <input type="range" id="ambientStrength" min="0" max="1" step="0.1" value="0.2">
-          <span id="ambientValue">0.2</span><br>
+          <input type="range" id="ambientStrength" min="0" max="0.1" step="0.001" value="0.005">
+          <span id="ambientValue">0.005</span><br>
           
           <label for="diffuseStrength">Diffuse:</label>
           <input type="range" id="diffuseStrength" min="0" max="1" step="0.1" value="0.7">
           <span id="diffuseValue">0.7</span><br>
           
           <label for="specularStrength">Specular:</label>
-          <input type="range" id="specularStrength" min="0" max="1" step="0.1" value="0.5">
-          <span id="specularValue">0.5</span><br>
+          <input type="range" id="specularStrength" min="0" max="1" step="0.001" value="0.794">
+          <span id="specularValue">0.794</span><br>
           
           <label for="shininess">Shininess:</label>
-          <input type="range" id="shininess" min="1" max="128" step="1" value="32">
-          <span id="shininessValue">32</span>
+          <input type="range" id="shininess" min="1" max="200" step="1" value="150">
+          <span id="shininessValue">150</span>
         </div>
       </div>
     </div>

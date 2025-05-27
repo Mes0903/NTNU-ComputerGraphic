@@ -1,10 +1,10 @@
 let draggingThird = false;
 let renderingMode = 'texture'; // Current rendering mode
 let lightingParams = {
-  ambient: 0.2,
+  ambient: 0.005,  
   diffuse: 0.7,
-  specular: 0.5,
-  shininess: 32
+  specular: 0.7937, 
+  shininess: 150    
 };
 let reflectionParams = {
   enabled: true,
@@ -35,6 +35,7 @@ function main() {
     a_Position: gl.getAttribLocation(mainProgram, 'a_Position'),
     a_Normal: gl.getAttribLocation(mainProgram, 'a_Normal'),
     a_TexCoord: gl.getAttribLocation(mainProgram, 'a_TexCoord'),
+    a_Color: gl.getAttribLocation(mainProgram, 'a_Color'),
     u_MvpMatrix: gl.getUniformLocation(mainProgram, 'u_MvpMatrix'),
     u_ModelMatrix: gl.getUniformLocation(mainProgram, 'u_ModelMatrix'),
     u_NormalMatrix: gl.getUniformLocation(mainProgram, 'u_NormalMatrix'),
@@ -51,6 +52,7 @@ function main() {
     u_UseTexture: gl.getUniformLocation(mainProgram, 'u_UseTexture'),
     u_UseReflection: gl.getUniformLocation(mainProgram, 'u_UseReflection'),
     u_ShowNormals: gl.getUniformLocation(mainProgram, 'u_ShowNormals'),
+    u_UseVertexColors: gl.getUniformLocation(mainProgram, 'u_UseVertexColors'),
     u_ReflectionStrength: gl.getUniformLocation(mainProgram, 'u_ReflectionStrength')
   };
 
@@ -72,6 +74,7 @@ function main() {
   const vBuffer = gl.createBuffer();
   const nBuffer = gl.createBuffer();
   const tBuffer = gl.createBuffer();
+  const cBuffer = gl.createBuffer(); // Color buffer
   let numVertices = 0;
 
   // Skybox buffers
@@ -214,7 +217,7 @@ function main() {
     modelMatrix.setIdentity();
     mvpMatrix.set(camera.proj).multiply(camera.view).multiply(modelMatrix);
     
-    // For normals, use view space to match GAMES101 implementation
+    // For normals, use view space normal to match GAMES101 implementation
     const viewModelMatrix = new Matrix4();
     viewModelMatrix.set(camera.view).multiply(modelMatrix);
     normalMatrix.setInverseOf(viewModelMatrix).transpose();
@@ -223,7 +226,7 @@ function main() {
     gl.uniformMatrix4fv(mainLocations.u_MvpMatrix, false, mvpMatrix.elements);
     gl.uniformMatrix4fv(mainLocations.u_ModelMatrix, false, modelMatrix.elements);
     gl.uniformMatrix4fv(mainLocations.u_NormalMatrix, false, normalMatrix.elements);
-    gl.uniform3f(mainLocations.u_LightPosition, 5, 5, 5);
+    gl.uniform3f(mainLocations.u_LightPosition, 20, 20, 20); 
     gl.uniform3f(mainLocations.u_ViewPosition, camera.pos[0], camera.pos[1], camera.pos[2]);
     gl.uniform3f(mainLocations.u_EyePosition, camera.pos[0], camera.pos[1], camera.pos[2]);
     
@@ -240,24 +243,28 @@ function main() {
         gl.uniform1i(mainLocations.u_UseTexture, true);
         gl.uniform1i(mainLocations.u_UseReflection, false);
         gl.uniform1i(mainLocations.u_ShowNormals, false);
+        gl.uniform1i(mainLocations.u_UseVertexColors, false);
         break;
       case 'normal':
         gl.uniform3f(mainLocations.u_Color, 1, 1, 1);
         gl.uniform1i(mainLocations.u_UseTexture, false);
         gl.uniform1i(mainLocations.u_UseReflection, false);
         gl.uniform1i(mainLocations.u_ShowNormals, true);
+        gl.uniform1i(mainLocations.u_UseVertexColors, false);
         break;
       case 'phong':
         gl.uniform3f(mainLocations.u_Color, 0.8, 0.8, 0.9);
         gl.uniform1i(mainLocations.u_UseTexture, false);
         gl.uniform1i(mainLocations.u_UseReflection, false);
         gl.uniform1i(mainLocations.u_ShowNormals, false);
+        gl.uniform1i(mainLocations.u_UseVertexColors, true);
         break;
       case 'reflection':
         gl.uniform3f(mainLocations.u_Color, 1, 1, 1);
         gl.uniform1i(mainLocations.u_UseTexture, true);
         gl.uniform1i(mainLocations.u_UseReflection, reflectionParams.enabled);
         gl.uniform1i(mainLocations.u_ShowNormals, false);
+        gl.uniform1i(mainLocations.u_UseVertexColors, false);
         gl.uniform1f(mainLocations.u_ReflectionStrength, reflectionParams.strength);
         break;
     }
@@ -284,6 +291,10 @@ function main() {
     gl.vertexAttribPointer(mainLocations.a_TexCoord, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(mainLocations.a_TexCoord);
 
+    gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
+    gl.vertexAttribPointer(mainLocations.a_Color, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(mainLocations.a_Color);
+
     // Draw object
     gl.drawArrays(gl.TRIANGLES, 0, numVertices);
   }
@@ -299,6 +310,14 @@ function main() {
       const normals = new Float32Array(data.normal);
       const texCoords = new Float32Array(data.texcoord || []);
       numVertices = positions.length / 3;
+
+      // Generate vertex colors to match GAMES101 version (brownish colors)
+      const colors = new Float32Array(numVertices * 3);
+      for (let i = 0; i < numVertices; i++) {
+        colors[i * 3] = 148.0 / 255.0;     // R
+        colors[i * 3 + 1] = 121.0 / 255.0; // G  
+        colors[i * 3 + 2] = 92.0 / 255.0;  // B
+      }
 
       // Handle texture coordinates - use existing ones or generate simple planar mapping
       let finalTexCoords = texCoords;
@@ -352,6 +371,9 @@ function main() {
 
       gl.bindBuffer(gl.ARRAY_BUFFER, tBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, finalTexCoords, gl.STATIC_DRAW);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW);
 
       // Start animation loop
       let lastTime = performance.now();
