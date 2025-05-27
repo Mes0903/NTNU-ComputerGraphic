@@ -10,6 +10,10 @@ let reflectionParams = {
   enabled: true,
   strength: 0.3
 };
+let bumpParams = {
+  enabled: false,
+  strength: 0.2
+};
 
 function main() {
   const canvas = document.getElementById('webgl');
@@ -48,12 +52,16 @@ function main() {
     u_Shininess: gl.getUniformLocation(mainProgram, 'u_Shininess'),
     u_Color: gl.getUniformLocation(mainProgram, 'u_Color'),
     u_Texture: gl.getUniformLocation(mainProgram, 'u_Texture'),
+    u_BumpTexture: gl.getUniformLocation(mainProgram, 'u_BumpTexture'),
     u_CubeMap: gl.getUniformLocation(mainProgram, 'u_CubeMap'),
     u_UseTexture: gl.getUniformLocation(mainProgram, 'u_UseTexture'),
     u_UseReflection: gl.getUniformLocation(mainProgram, 'u_UseReflection'),
     u_ShowNormals: gl.getUniformLocation(mainProgram, 'u_ShowNormals'),
     u_UseVertexColors: gl.getUniformLocation(mainProgram, 'u_UseVertexColors'),
-    u_ReflectionStrength: gl.getUniformLocation(mainProgram, 'u_ReflectionStrength')
+    u_UseBumpMapping: gl.getUniformLocation(mainProgram, 'u_UseBumpMapping'),
+    u_ReflectionStrength: gl.getUniformLocation(mainProgram, 'u_ReflectionStrength'),
+    u_BumpStrength: gl.getUniformLocation(mainProgram, 'u_BumpStrength'),
+    u_ShowHeightMap: gl.getUniformLocation(mainProgram, 'u_ShowHeightMap')
   };
 
   // Get attribute and uniform locations for skybox program
@@ -111,6 +119,21 @@ function main() {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   };
   textureImage.src = 'assets/spot/spot_texture.png';
+
+  // Load bump texture (height map) - using the hmap.jpg from GAMES101
+  const bumpTexture = gl.createTexture();
+  const bumpImage = new Image();
+  bumpImage.onload = function() {
+    gl.bindTexture(gl.TEXTURE_2D, bumpTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bumpImage);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    console.log('Bump texture loaded successfully');
+  };
+  bumpImage.src = 'assets/spot/hmap.png';
 
   // Initialize camera and input state
   const camera = new Camera(canvas);
@@ -216,11 +239,7 @@ function main() {
     // Update matrices
     modelMatrix.setIdentity();
     mvpMatrix.set(camera.proj).multiply(camera.view).multiply(modelMatrix);
-    
-    // For normals, use view space normal to match GAMES101 implementation
-    const viewModelMatrix = new Matrix4();
-    viewModelMatrix.set(camera.view).multiply(modelMatrix);
-    normalMatrix.setInverseOf(viewModelMatrix).transpose();
+    normalMatrix.setInverseOf(modelMatrix).transpose(); // used to transform normal into world space
 
     // Set uniforms based on rendering mode
     gl.uniformMatrix4fv(mainLocations.u_MvpMatrix, false, mvpMatrix.elements);
@@ -244,6 +263,8 @@ function main() {
         gl.uniform1i(mainLocations.u_UseReflection, false);
         gl.uniform1i(mainLocations.u_ShowNormals, false);
         gl.uniform1i(mainLocations.u_UseVertexColors, false);
+        gl.uniform1i(mainLocations.u_UseBumpMapping, false);
+        gl.uniform1i(mainLocations.u_ShowHeightMap, false);
         break;
       case 'normal':
         gl.uniform3f(mainLocations.u_Color, 1, 1, 1);
@@ -251,6 +272,8 @@ function main() {
         gl.uniform1i(mainLocations.u_UseReflection, false);
         gl.uniform1i(mainLocations.u_ShowNormals, true);
         gl.uniform1i(mainLocations.u_UseVertexColors, false);
+        gl.uniform1i(mainLocations.u_UseBumpMapping, false);
+        gl.uniform1i(mainLocations.u_ShowHeightMap, false);
         break;
       case 'phong':
         gl.uniform3f(mainLocations.u_Color, 0.8, 0.8, 0.9);
@@ -258,13 +281,38 @@ function main() {
         gl.uniform1i(mainLocations.u_UseReflection, false);
         gl.uniform1i(mainLocations.u_ShowNormals, false);
         gl.uniform1i(mainLocations.u_UseVertexColors, true);
+        gl.uniform1i(mainLocations.u_UseBumpMapping, false);
+        gl.uniform1i(mainLocations.u_ShowHeightMap, false);
+        break;
+      case 'bump':
+        // This matches the C++ bump_fragment_shader exactly
+        gl.uniform3f(mainLocations.u_Color, 1, 1, 1);
+        gl.uniform1i(mainLocations.u_UseTexture, false);
+        gl.uniform1i(mainLocations.u_UseReflection, false);
+        gl.uniform1i(mainLocations.u_ShowNormals, true); // Show modified normals as colors
+        gl.uniform1i(mainLocations.u_UseVertexColors, false);
+        gl.uniform1i(mainLocations.u_UseBumpMapping, true);
+        gl.uniform1i(mainLocations.u_ShowHeightMap, false);
+        gl.uniform1f(mainLocations.u_BumpStrength, bumpParams.strength);
+        break;
+      case 'heightMap':
+        // Show the height map texture directly
+        gl.uniform3f(mainLocations.u_Color, 1, 1, 1);
+        gl.uniform1i(mainLocations.u_UseTexture, false);
+        gl.uniform1i(mainLocations.u_UseReflection, false);
+        gl.uniform1i(mainLocations.u_ShowNormals, false);
+        gl.uniform1i(mainLocations.u_UseVertexColors, false);
+        gl.uniform1i(mainLocations.u_UseBumpMapping, true);
+        gl.uniform1i(mainLocations.u_ShowHeightMap, true);
         break;
       case 'reflection':
         gl.uniform3f(mainLocations.u_Color, 1, 1, 1);
-        gl.uniform1i(mainLocations.u_UseTexture, true);
+        gl.uniform1i(mainLocations.u_UseTexture, false);
         gl.uniform1i(mainLocations.u_UseReflection, reflectionParams.enabled);
         gl.uniform1i(mainLocations.u_ShowNormals, false);
         gl.uniform1i(mainLocations.u_UseVertexColors, false);
+        gl.uniform1i(mainLocations.u_UseBumpMapping, false);
+        gl.uniform1i(mainLocations.u_ShowHeightMap, false);
         gl.uniform1f(mainLocations.u_ReflectionStrength, reflectionParams.strength);
         break;
     }
@@ -275,8 +323,12 @@ function main() {
     gl.uniform1i(mainLocations.u_Texture, 0);
     
     gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, bumpTexture);
+    gl.uniform1i(mainLocations.u_BumpTexture, 1);
+    
+    gl.activeTexture(gl.TEXTURE2);
     gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubeMapTexture);
-    gl.uniform1i(mainLocations.u_CubeMap, 1);
+    gl.uniform1i(mainLocations.u_CubeMap, 2);
 
     // Bind vertex buffers
     gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
@@ -422,6 +474,14 @@ function setupUIControls() {
   // Reflection enable checkbox
   document.getElementById('enableReflection').addEventListener('change', e => {
     reflectionParams.enabled = e.target.checked;
+  });
+
+  // Bump mapping controls
+  const bumpSlider = document.getElementById('bumpStrength');
+  const bumpValue = document.getElementById('bumpValue');
+  bumpSlider.addEventListener('input', e => {
+    bumpParams.strength = parseFloat(e.target.value);
+    bumpValue.textContent = e.target.value;
   });
 
   // Lighting parameter sliders

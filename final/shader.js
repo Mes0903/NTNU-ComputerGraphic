@@ -33,12 +33,16 @@ uniform vec3 u_ViewPosition;
 uniform float u_Ka, u_Kd, u_Ks, u_Shininess;
 uniform vec3 u_Color;
 uniform sampler2D u_Texture;
+uniform sampler2D u_BumpTexture;
 uniform samplerCube u_CubeMap;
 uniform bool u_UseTexture;
 uniform bool u_UseReflection;
 uniform bool u_ShowNormals;
 uniform bool u_UseVertexColors;
+uniform bool u_UseBumpMapping;
 uniform float u_ReflectionStrength;
+uniform float u_BumpStrength;
+uniform bool u_ShowHeightMap;
 varying vec3 v_Normal;
 varying vec3 v_Position;
 varying vec3 v_Reflect;
@@ -48,11 +52,61 @@ varying vec3 v_Color;
 void main() {
   vec3 N = normalize(v_Normal);
   
+  // Bump mapping implementation matching GAMES101
+  if (u_UseBumpMapping) {
+    // Get the normal from vertex shader
+    float x = N.x;
+    float y = N.y;
+    float z = N.z;
+    
+    // Calculate tangent vector - matching GAMES101 implementation
+    // t = (x*y/sqrt(x*x+z*z), sqrt(x*x+z*z), z*y/sqrt(x*x+z*z))
+    float denominator = sqrt(x*x + z*z);
+    vec3 t;
+    t = vec3(x*y/denominator, denominator, z*y/denominator);
+    t = normalize(t);
+    
+    // Calculate bitangent: b = n cross t
+    vec3 b = normalize(cross(N, t));
+    
+    // Create TBN matrix
+    mat3 TBN = mat3(t, b, N);
+    
+    // texture dimensions
+    float u = v_TexCoord.x;
+    float v = v_TexCoord.y;
+    float w = 1024.0;
+    float h = 1024.0;
+    
+    // Sample the bump texture (height map) at different positions
+    float h_uv = length(texture2D(u_BumpTexture, vec2(u, v)).rgb);
+    float h_u1v = length(texture2D(u_BumpTexture, vec2(u + 1.0/w, v)).rgb);
+    float h_uv1 = length(texture2D(u_BumpTexture, vec2(u, v + 1.0/h)).rgb);
+    
+    // Calculate gradients
+    float dU = u_BumpStrength * (h_u1v - h_uv);
+    float dV = u_BumpStrength * (h_uv1 - h_uv);
+    
+    // Local normal in tangent space
+    vec3 ln = vec3(-dU, -dV, 1.0);
+    
+    // Transform to world space using TBN matrix
+    N = normalize(TBN * ln);
+  }
+
   // Normal visualization mode
   if (u_ShowNormals) {
     // Convert normal from [-1,1] to [0,1] range for visualization
+    // This will show modified normals if bump mapping is active
     vec3 normalColor = (N + 1.0) * 0.5;
     gl_FragColor = vec4(normalColor, 1.0);
+    return;
+  }
+  
+  // Height map visualization mode
+  if (u_ShowHeightMap) {
+    vec3 heightColor = texture2D(u_BumpTexture, v_TexCoord).rgb;
+    gl_FragColor = vec4(heightColor, 1.0);
     return;
   }
   
@@ -219,6 +273,27 @@ function loadCubeMap(gl, faces) {
     image.src = faces[i];
   }
 
+  return texture;
+}
+
+// Function to load 2D texture
+function load2DTexture(gl, imageSrc, callback) {
+  const texture = gl.createTexture();
+  const image = new Image();
+  
+  image.onload = function() {
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    
+    if (callback) callback(texture);
+  };
+  
+  image.src = imageSrc;
   return texture;
 }
 

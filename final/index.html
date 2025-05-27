@@ -101,7 +101,11 @@
           </div>
           <div>
             <input type="radio" id="bump" name="mode" value="bump">
-            <label for="bump">Bump Mapping</label>
+            <label for="bump">Bump Mapping (Modified Normals)</label>
+          </div>
+          <div>
+            <input type="radio" id="heightMap" name="mode" value="heightMap">
+            <label for="heightMap">Height Map Visualization</label>
           </div>
           <div>
             <input type="radio" id="reflection" name="mode" value="reflection">
@@ -122,6 +126,13 @@
             • First person: automatic pointer lock<br>
             • Third person: click and drag to rotate
           </div>
+        </div>
+
+        <div class="control-section">
+          <h3>Bump Mapping Settings</h3>
+          <label for="bumpStrength">Bump Strength:</label>
+          <input type="range" id="bumpStrength" min="2" max="10" step="0.1" value="0.2">
+          <span id="bumpValue">0.2</span>
         </div>
 
         <div class="control-section">
@@ -158,15 +169,16 @@
     </div>
 
     <div class="description">
-      <h3>3D Scene with Environment Cube Mapping</h3>
+      <h3>3D Scene with Environment Cube Mapping and Bump Mapping</h3>
       <p><strong>Project Features:</strong></p>
       <ul>
         <li><strong>Environment Cube Mapping:</strong> Realistic skybox using Yokohama environment textures</li>
         <li><strong>Cube Map Reflections:</strong> Objects reflect the surrounding environment</li>
+        <li><strong>Bump Mapping:</strong> Surface detail simulation using height maps (matching GAMES101 implementation)</li>
         <li><strong>Phong Lighting Model:</strong> Ambient, diffuse, and specular lighting with adjustable parameters</li>
         <li><strong>Texture Mapping:</strong> High-quality texture applied to 3D models</li>
         <li><strong>Dual Camera System:</strong> Switch between first-person and third-person views</li>
-        <li><strong>Interactive Controls:</strong> Real-time adjustment of lighting and reflection parameters</li>
+        <li><strong>Interactive Controls:</strong> Real-time adjustment of lighting, reflection, and bump mapping parameters</li>
       </ul>
       
       <p><strong>How to Use:</strong></p>
@@ -174,17 +186,34 @@
         <li>Use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> keys to move around the scene</li>
         <li>Move your mouse to look around (automatic in first-person, click-drag in third-person)</li>
         <li>Toggle between first-person and third-person view using the checkbox</li>
-        <li>Adjust rendering modes to see different visual effects</li>
-        <li>Modify lighting and reflection settings using the control panel</li>
+        <li>Select different rendering modes to see various visual effects:</li>
+        <ul>
+          <li><strong>Texture Mapping:</strong> Shows the object with its diffuse texture</li>
+          <li><strong>Normal Visualization:</strong> Displays surface normals as colors</li>
+          <li><strong>Blinn-Phong Shading:</strong> Classic lighting model with vertex colors</li>
+          <li><strong>Bump Mapping:</strong> Shows modified normals from height map for surface detail</li>
+          <li><strong>Cube Map Reflection:</strong> Environmental reflections on the object surface</li>
+        </ul>
+        <li>Adjust lighting, reflection, and bump mapping settings using the control panel</li>
       </ul>
       
       <p><strong>Technical Implementation:</strong></p>
       <ul>
         <li>WebGL with custom shaders for rendering</li>
-        <li>Cube map texture loading and sampling</li>
+        <li>Cube map texture loading and sampling for environment mapping</li>
+        <li>Bump mapping using tangent-space normal calculation (TBN matrix)</li>
         <li>Real-time reflection vector calculation</li>
-        <li>Phong lighting model implementation</li>
+        <li>Blinn-Phong lighting model implementation</li>
         <li>Interactive camera controls with pointer lock API</li>
+        <li>Height map processing for surface detail simulation</li>
+      </ul>
+      
+      <p><strong>Bump Mapping Details:</strong></p>
+      <ul>
+        <li>Uses GAMES101-style implementation with TBN (Tangent-Bitangent-Normal) matrix</li>
+        <li>Height map (hmap.jpg) sampled to calculate surface gradients</li>
+        <li>Normal perturbation calculated in tangent space and transformed to world space</li>
+        <li>Adjustable bump strength parameter for varying surface detail intensity</li>
       </ul>
     </div>
     
