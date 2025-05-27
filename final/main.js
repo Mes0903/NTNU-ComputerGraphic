@@ -97,6 +97,64 @@ function main() {
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, skyboxIndexBuffer);
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, skyboxGeometry.indices, gl.STATIC_DRAW);
 
+  // For cube surround model
+  const cubeCount = 8;
+  const cubePos = new Float32Array([
+    // positions              // normals
+    // +X
+    0.5,-0.5,-0.5,  1,0,0,   0.5, 0.5,-0.5, 1,0,0,   0.5, 0.5, 0.5, 1,0,0,
+    0.5,-0.5,-0.5,  1,0,0,   0.5, 0.5, 0.5, 1,0,0,   0.5,-0.5, 0.5, 1,0,0,
+    // -X
+    -0.5,-0.5,-0.5, -1,0,0,  -0.5, 0.5, 0.5,-1,0,0,  -0.5, 0.5,-0.5,-1,0,0,
+    -0.5,-0.5,-0.5, -1,0,0,  -0.5,-0.5, 0.5,-1,0,0,  -0.5, 0.5, 0.5,-1,0,0,
+    // +Y
+    -0.5, 0.5,-0.5,  0,1,0,   0.5, 0.5,-0.5, 0,1,0,   0.5, 0.5, 0.5, 0,1,0,
+    -0.5, 0.5,-0.5,  0,1,0,   0.5, 0.5, 0.5, 0,1,0,  -0.5, 0.5, 0.5, 0,1,0,
+    // -Y
+    -0.5,-0.5,-0.5,  0,-1,0,  0.5,-0.5, 0.5,0,-1,0,   0.5,-0.5,-0.5,0,-1,0,
+    -0.5,-0.5,-0.5,  0,-1,0, -0.5,-0.5, 0.5,0,-1,0,   0.5,-0.5, 0.5,0,-1,0,
+    // +Z
+    -0.5,-0.5, 0.5,  0,0,1,   0.5, 0.5, 0.5,0,0,1,    0.5,-0.5, 0.5,0,0,1,
+    -0.5,-0.5, 0.5,  0,0,1,  -0.5, 0.5, 0.5,0,0,1,    0.5, 0.5, 0.5,0,0,1,
+    // -Z
+    -0.5,-0.5,-0.5,  0,0,-1,  0.5,-0.5,-0.5,0,0,-1,   0.5, 0.5,-0.5,0,0,-1,
+    -0.5,-0.5,-0.5,  0,0,-1,   0.5, 0.5,-0.5,0,0,-1, -0.5, 0.5,-0.5,0,0,-1,
+  ]);
+  const cubeVtx = cubePos.length / 6;          // 36
+  const cubeVBO = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, cubeVBO);
+  gl.bufferData(gl.ARRAY_BUFFER, cubePos, gl.STATIC_DRAW);
+
+  /* Utility: tiny HSV→RGB so we can sweep the hue easily */
+  function hsvToRgb(h, s = 1, v = 1) {
+    const i = Math.floor(h * 6);
+    const f = h * 6 - i;
+    const p = v * (1 - s);
+    const q = v * (1 - f * s);
+    const t = v * (1 - (1 - f) * s);
+    const mod = i % 6;
+    return [
+      [v, q, p, p, t, v][mod],
+      [t, v, v, q, p, p][mod],
+      [p, p, t, v, v, q][mod]
+    ];
+  }
+
+  /* Spherical-orbit parameters
+   *    θ (theta) = longitude  angle in [0, 2π)
+   *    φ (phi)   = latitude   angle in [0, π]
+   * Each cube owns an independent dθ/dt & dφ/dt so the paths look unique. 
+   */
+  const cubes = Array.from({ length: cubeCount }, (_, i) => ({
+    theta: i * Math.PI * 2 / cubeCount,
+    phi  : (Math.PI / cubeCount) * (i + 1),
+    dTheta: 0.6 + 0.1 * i * Math.random(),
+    dPhi  : 0.3 + 0.1 * i * Math.random(),
+    spin  : 0,
+    radius: 3.0,
+    color : hsvToRgb(i / cubeCount)        // evenly-spaced rainbow
+  }));
+
   // Load cube map texture
   const cubeMapFaces = [
     'assets/Yokohama2/posx.jpg', // +X
@@ -352,6 +410,56 @@ function main() {
     gl.drawArrays(gl.TRIANGLES, 0, numVertices);
   }
 
+  function renderCubes(dt) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, cubeVBO);
+    // stride = 6 * 4 bytes; pos offset 0, normal offset 12
+    gl.vertexAttribPointer(mainLocations.a_Position, 3, gl.FLOAT, false, 24, 0);
+    gl.enableVertexAttribArray(mainLocations.a_Position);
+    gl.vertexAttribPointer(mainLocations.a_Normal, 3, gl.FLOAT, false, 24, 12);
+    gl.enableVertexAttribArray(mainLocations.a_Normal);
+
+    // Disable texturing / reflection for cubes
+    gl.uniform1i(mainLocations.u_UseTexture,     false);
+    gl.uniform1i(mainLocations.u_UseReflection,  false);
+    gl.uniform1i(mainLocations.u_ShowNormals,    false);
+    gl.uniform1i(mainLocations.u_UseVertexColors,false);
+    gl.uniform1i(mainLocations.u_UseBumpMapping, false);
+    gl.uniform1i(mainLocations.u_ShowHeightMap,  false);
+
+    cubes.forEach(c => {
+      // ---- advance spherical coordinates ----
+      c.theta += c.dTheta * dt;
+      c.phi   += c.dPhi   * dt;
+
+      // keep angles in [0, 2π) for numeric stability
+      c.theta %= Math.PI * 2;
+      c.phi   %= Math.PI * 2;
+
+      // ---- convert spherical → Cartesian ----
+      const x = c.radius * Math.sin(c.phi) * Math.cos(c.theta);
+      const y = c.radius * Math.cos(c.phi);          // vertical component
+      const z = c.radius * Math.sin(c.phi) * Math.sin(c.theta);
+
+      // ---- self-spin (optional) ----
+      c.spin += 120 * dt;                            // deg/s
+
+      // ---- build model matrix ----
+      modelMatrix.setIdentity();
+      modelMatrix.translate(x, y + 0.7, z);          // 0.7 = Spot’s torso height
+      modelMatrix.rotate(c.spin, 1, 1, 0);           // arbitrary axis
+      mvpMatrix.set(camera.proj).multiply(camera.view).multiply(modelMatrix);
+      normalMatrix.setInverseOf(modelMatrix).transpose();
+
+      // ---- push uniforms & draw ----
+      gl.uniform3fv(mainLocations.u_Color, c.color);
+
+      gl.uniformMatrix4fv(mainLocations.u_MvpMatrix,    false, mvpMatrix.elements);
+      gl.uniformMatrix4fv(mainLocations.u_ModelMatrix,  false, modelMatrix.elements);
+      gl.uniformMatrix4fv(mainLocations.u_NormalMatrix, false, normalMatrix.elements);
+      gl.drawArrays(gl.TRIANGLES, 0, cubeVtx);
+    });
+  }
+
   // Load OBJ and start render loop
   fetch('assets/spot/spot_triangulated_good.obj')
     .then(r => r.ok ? r.text() : Promise.reject(r.status))
@@ -440,12 +548,9 @@ function main() {
 
         // Clear canvas
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        // Render skybox first
         renderSkybox();
-
-        // Render main object
         renderObject();
+        renderCubes(dt); 
 
         requestAnimationFrame(tick);
       })();
