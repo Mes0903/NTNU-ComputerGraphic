@@ -7,18 +7,23 @@ attribute vec3 a_Color;
 uniform mat4 u_MvpMatrix;
 uniform mat4 u_ModelMatrix;
 uniform mat4 u_NormalMatrix;
+uniform mat4 u_LightMvpMatrix; // Light space matrix for shadow mapping
 uniform vec3 u_EyePosition;
 varying vec3 v_Normal;
 varying vec3 v_Position;
 varying vec3 v_Reflect;
 varying vec2 v_TexCoord;
 varying vec3 v_Color;
+varying vec4 v_PositionFromLight; // Position in light space
 void main() {
   gl_Position = u_MvpMatrix * a_Position;
   v_Position = (u_ModelMatrix * a_Position).xyz;
   v_Normal = normalize((u_NormalMatrix * a_Normal).xyz);
   v_TexCoord = a_TexCoord;
   v_Color = a_Color;
+  
+  // Calculate position from light's perspective for shadow mapping
+  v_PositionFromLight = u_LightMvpMatrix * u_ModelMatrix * a_Position;
   
   // Calculate reflection vector for cube mapping
   vec3 eyeDirection = normalize(v_Position - u_EyePosition);
@@ -34,12 +39,14 @@ uniform float u_Ka, u_Kd, u_Ks, u_Shininess;
 uniform vec3 u_Color;
 uniform sampler2D u_Texture;
 uniform sampler2D u_BumpTexture;
+uniform sampler2D u_ShadowMap; // Shadow map texture
 uniform samplerCube u_CubeMap;
 uniform bool u_UseTexture;
 uniform bool u_UseReflection;
 uniform bool u_ShowNormals;
 uniform bool u_UseVertexColors;
 uniform bool u_UseBumpMapping;
+uniform bool u_UseShadow; // Enable/disable shadow
 uniform float u_ReflectionStrength;
 uniform float u_BumpStrength;
 uniform bool u_ShowHeightMap;
@@ -48,6 +55,38 @@ varying vec3 v_Position;
 varying vec3 v_Reflect;
 varying vec2 v_TexCoord;
 varying vec3 v_Color;
+varying vec4 v_PositionFromLight;
+
+// Shadow calculation function
+float calculateShadow() {
+  // Convert to NDC coordinates
+  vec3 projCoords = v_PositionFromLight.xyz / v_PositionFromLight.w;
+  
+  // Transform to [0,1] range
+  projCoords = projCoords * 0.5 + 0.5;
+  
+  // Check if fragment is outside light's view frustum
+  if (projCoords.z > 1.0 || projCoords.x < 0.0 || projCoords.x > 1.0 || 
+      projCoords.y < 0.0 || projCoords.y > 1.0) {
+    return 0.0; // No shadow if outside frustum
+  }
+  
+  // Get closest depth value from light's perspective
+  float closestDepth = texture2D(u_ShadowMap, projCoords.xy).r;
+  
+  // Get depth of current fragment from light's perspective
+  float currentDepth = projCoords.z;
+  
+  // Calculate bias based on surface angle to light
+  vec3 N = normalize(v_Normal);
+  vec3 L = normalize(u_LightPosition - v_Position);
+  float bias = max(0.008 * (1.0 - dot(N, L)), 0.002);
+  
+  // Simple shadow test
+  float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+  
+  return shadow;
+}
 
 void main() {
   vec3 N = normalize(v_Normal);
@@ -110,9 +149,17 @@ void main() {
     baseColor = texture2D(u_Texture, v_TexCoord).rgb;
   }
   
+  // Calculate shadow factor
+  float shadow = 0.0;
+  if (u_UseShadow) {
+    shadow = calculateShadow();
+  }
+  
   // Lighting calculations using Blinn-Phong model
   vec3 ambient = u_Ka * baseColor;
-  vec3 diffuse = u_Kd * baseColor * nDotL;
+  
+  // Apply shadow to diffuse and specular components
+  vec3 diffuse = u_Kd * baseColor * nDotL * (1.0 - shadow);
   
   // Blinn-Phong specular calculation
   vec3 specular = vec3(0.0);
@@ -121,7 +168,7 @@ void main() {
     vec3 H = normalize(L + V);  // Halfway vector
     float nDotH = max(dot(N, H), 0.0);
     float spec = pow(nDotH, u_Shininess);
-    specular = u_Ks * spec * vec3(1.0);
+    specular = u_Ks * spec * vec3(1.0) * (1.0 - shadow);
   }
   
   vec3 finalColor = ambient + diffuse + specular;
@@ -133,6 +180,24 @@ void main() {
   }
   
   gl_FragColor = vec4(finalColor, 1.0);
+}`;
+
+// Vertex shader for shadow mapping (depth pass)
+const SHADOW_VSHADER = `
+attribute vec4 a_Position;
+uniform mat4 u_MvpMatrix;
+uniform mat4 u_ModelMatrix;
+void main() {
+  gl_Position = u_MvpMatrix * u_ModelMatrix * a_Position;
+}`;
+
+// Fragment shader for shadow mapping (depth pass)
+const SHADOW_FSHADER = `
+precision mediump float;
+void main() {
+  // WebGL automatically writes depth to gl_FragDepth
+  // We just need a simple fragment shader for the depth pass
+  gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
 }`;
 
 // Vertex shader for skybox
@@ -227,6 +292,37 @@ function loadShader(gl, t, s) {
 
 function getWebGLContext(canvas){
   return canvas.getContext('webgl')||canvas.getContext('experimental-webgl');
+}
+
+// Function to create shadow map framebuffer
+function createShadowFramebuffer(gl, size = 2048) {
+  const framebuffer = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+  
+  // Create depth texture for shadow map
+  const depthTexture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, size, size, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_SHORT, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  
+  // Attach depth texture as framebuffer's depth buffer
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, depthTexture, 0);
+  
+  // Check if framebuffer is complete
+  if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+    console.error('Shadow framebuffer not complete');
+  }
+  
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  
+  return {
+    framebuffer: framebuffer,
+    depthTexture: depthTexture,
+    size: size
+  };
 }
 
 // Function to load cube map texture

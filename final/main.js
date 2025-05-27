@@ -6,13 +6,20 @@ let lightingParams = {
   specular: 0.7937, 
   shininess: 150    
 };
+
 let reflectionParams = {
   enabled: true,
   strength: 0.3
 };
+
 let bumpParams = {
   enabled: false,
   strength: 0.2
+};
+
+let shadowParams = {
+  enabled: true,
+  lightPos: [15, 20, 15] // Light position for shadow mapping
 };
 
 function main() {
@@ -20,13 +27,26 @@ function main() {
   const gl = getWebGLContext(canvas);
   if (!gl) { alert('WebGL not supported'); return; }
 
+  // Check for depth texture extension (needed for shadow mapping)
+  const depthTextureExt = gl.getExtension('WEBGL_depth_texture');
+  if (!depthTextureExt) {
+    console.warn('WEBGL_depth_texture not supported. Shadows may not work properly.');
+  }
+
   // Initialize main shader program
   if (!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) return;
   const mainProgram = gl.program;
 
+  // Initialize shadow shader program
+  const shadowProgram = createProgram(gl, SHADOW_VSHADER, SHADOW_FSHADER);
+  if (!shadowProgram) return;
+
   // Initialize skybox shader program
   const skyboxProgram = createProgram(gl, SKYBOX_VSHADER, SKYBOX_FSHADER);
   if (!skyboxProgram) return;
+
+  // Create shadow framebuffer with higher resolution to reduce aliasing
+  const shadowFramebuffer = createShadowFramebuffer(gl, 2048);
 
   // Clear color, enable depth test, and set viewport
   gl.clearColor(0.1, 0.1, 0.1, 1);
@@ -43,6 +63,7 @@ function main() {
     u_MvpMatrix: gl.getUniformLocation(mainProgram, 'u_MvpMatrix'),
     u_ModelMatrix: gl.getUniformLocation(mainProgram, 'u_ModelMatrix'),
     u_NormalMatrix: gl.getUniformLocation(mainProgram, 'u_NormalMatrix'),
+    u_LightMvpMatrix: gl.getUniformLocation(mainProgram, 'u_LightMvpMatrix'),
     u_LightPosition: gl.getUniformLocation(mainProgram, 'u_LightPosition'),
     u_ViewPosition: gl.getUniformLocation(mainProgram, 'u_ViewPosition'),
     u_EyePosition: gl.getUniformLocation(mainProgram, 'u_EyePosition'),
@@ -53,15 +74,25 @@ function main() {
     u_Color: gl.getUniformLocation(mainProgram, 'u_Color'),
     u_Texture: gl.getUniformLocation(mainProgram, 'u_Texture'),
     u_BumpTexture: gl.getUniformLocation(mainProgram, 'u_BumpTexture'),
+    u_ShadowMap: gl.getUniformLocation(mainProgram, 'u_ShadowMap'),
     u_CubeMap: gl.getUniformLocation(mainProgram, 'u_CubeMap'),
     u_UseTexture: gl.getUniformLocation(mainProgram, 'u_UseTexture'),
     u_UseReflection: gl.getUniformLocation(mainProgram, 'u_UseReflection'),
     u_ShowNormals: gl.getUniformLocation(mainProgram, 'u_ShowNormals'),
     u_UseVertexColors: gl.getUniformLocation(mainProgram, 'u_UseVertexColors'),
     u_UseBumpMapping: gl.getUniformLocation(mainProgram, 'u_UseBumpMapping'),
+    u_UseShadow: gl.getUniformLocation(mainProgram, 'u_UseShadow'),
     u_ReflectionStrength: gl.getUniformLocation(mainProgram, 'u_ReflectionStrength'),
     u_BumpStrength: gl.getUniformLocation(mainProgram, 'u_BumpStrength'),
     u_ShowHeightMap: gl.getUniformLocation(mainProgram, 'u_ShowHeightMap')
+  };
+
+  // Get attribute and uniform locations for shadow program
+  gl.useProgram(shadowProgram);
+  const shadowLocations = {
+    a_Position: gl.getAttribLocation(shadowProgram, 'a_Position'),
+    u_MvpMatrix: gl.getUniformLocation(shadowProgram, 'u_MvpMatrix'),
+    u_ModelMatrix: gl.getUniformLocation(shadowProgram, 'u_ModelMatrix')
   };
 
   // Get attribute and uniform locations for skybox program
@@ -77,6 +108,9 @@ function main() {
   const mvpMatrix = new Matrix4();
   const modelMatrix = new Matrix4();
   const normalMatrix = new Matrix4();
+  const lightMvpMatrix = new Matrix4();
+  const lightViewMatrix = new Matrix4();
+  const lightProjMatrix = new Matrix4();
   
   // Object buffers
   const vBuffer = gl.createBuffer();
@@ -257,6 +291,76 @@ function main() {
   window.addEventListener('keydown', e => keys[e.code] = true);
   window.addEventListener('keyup', e => keys[e.code] = false);
 
+  // Function to setup light matrices for shadow mapping
+  function setupLightMatrices() {
+    // Set up light's view matrix (looking at origin from light position)
+    lightViewMatrix.setLookAt(
+      shadowParams.lightPos[0], shadowParams.lightPos[1], shadowParams.lightPos[2], // eye
+      0, 0, 0,                                                                      // target
+      0, 1, 0                                                                       // up
+    );
+    
+    // Set up light's projection matrix (orthographic projection for better shadow coverage)
+    // Increased the projection size to cover more of the scene and reduce aliasing
+    lightProjMatrix.setOrtho(-12, 12, -12, 12, 1, 40);
+    
+    // Combine light projection and view matrices
+    lightMvpMatrix.set(lightProjMatrix).multiply(lightViewMatrix);
+  }
+
+  // Function to render shadow map (depth pass)
+  function renderShadowMap() {
+    // Bind shadow framebuffer
+    gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFramebuffer.framebuffer);
+    gl.viewport(0, 0, shadowFramebuffer.size, shadowFramebuffer.size);
+    
+    // Clear depth buffer
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    
+    // Use shadow shader program
+    gl.useProgram(shadowProgram);
+    
+    // Setup light matrices
+    setupLightMatrices();
+    
+    // Render main object to shadow map
+    gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
+    gl.vertexAttribPointer(shadowLocations.a_Position, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(shadowLocations.a_Position);
+    
+    modelMatrix.setIdentity();
+    modelMatrix.rotate(180, 0, 1, 0);
+    mvpMatrix.set(lightMvpMatrix).multiply(modelMatrix);
+    
+    gl.uniformMatrix4fv(shadowLocations.u_MvpMatrix, false, mvpMatrix.elements);
+    gl.uniformMatrix4fv(shadowLocations.u_ModelMatrix, false, modelMatrix.elements);
+    gl.drawArrays(gl.TRIANGLES, 0, numVertices);
+    
+    // Render cubes to shadow map
+    gl.bindBuffer(gl.ARRAY_BUFFER, cubeVBO);
+    gl.vertexAttribPointer(shadowLocations.a_Position, 3, gl.FLOAT, false, 24, 0);
+    gl.enableVertexAttribArray(shadowLocations.a_Position);
+    
+    cubes.forEach(c => {
+      const x = c.radius * Math.sin(c.phi) * Math.cos(c.theta);
+      const y = c.radius * Math.cos(c.phi);
+      const z = c.radius * Math.sin(c.phi) * Math.sin(c.theta);
+      
+      modelMatrix.setIdentity();
+      modelMatrix.translate(x, y + 0.7, z);
+      modelMatrix.rotate(c.spin, 1, 1, 0);
+      mvpMatrix.set(lightMvpMatrix).multiply(modelMatrix);
+      
+      gl.uniformMatrix4fv(shadowLocations.u_MvpMatrix, false, mvpMatrix.elements);
+      gl.uniformMatrix4fv(shadowLocations.u_ModelMatrix, false, modelMatrix.elements);
+      gl.drawArrays(gl.TRIANGLES, 0, cubeVtx);
+    });
+    
+    // Unbind shadow framebuffer
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+  }
+
   // Function to render skybox
   function renderSkybox() {
     gl.useProgram(skyboxProgram);
@@ -304,7 +408,8 @@ function main() {
     gl.uniformMatrix4fv(mainLocations.u_MvpMatrix, false, mvpMatrix.elements);
     gl.uniformMatrix4fv(mainLocations.u_ModelMatrix, false, modelMatrix.elements);
     gl.uniformMatrix4fv(mainLocations.u_NormalMatrix, false, normalMatrix.elements);
-    gl.uniform3f(mainLocations.u_LightPosition, 20, 20, 20); 
+    gl.uniformMatrix4fv(mainLocations.u_LightMvpMatrix, false, lightMvpMatrix.elements);
+    gl.uniform3fv(mainLocations.u_LightPosition, shadowParams.lightPos);
     gl.uniform3f(mainLocations.u_ViewPosition, camera.pos[0], camera.pos[1], camera.pos[2]);
     gl.uniform3f(mainLocations.u_EyePosition, camera.pos[0], camera.pos[1], camera.pos[2]);
     
@@ -324,6 +429,7 @@ function main() {
         gl.uniform1i(mainLocations.u_UseVertexColors, false);
         gl.uniform1i(mainLocations.u_UseBumpMapping, false);
         gl.uniform1i(mainLocations.u_ShowHeightMap, false);
+        gl.uniform1i(mainLocations.u_UseShadow, shadowParams.enabled);
         break;
       case 'normal':
         gl.uniform3f(mainLocations.u_Color, 1, 1, 1);
@@ -333,6 +439,7 @@ function main() {
         gl.uniform1i(mainLocations.u_UseVertexColors, false);
         gl.uniform1i(mainLocations.u_UseBumpMapping, false);
         gl.uniform1i(mainLocations.u_ShowHeightMap, false);
+        gl.uniform1i(mainLocations.u_UseShadow, false); // No shadow in normal mode
         break;
       case 'phong':
         gl.uniform3f(mainLocations.u_Color, 0.8, 0.8, 0.9);
@@ -342,6 +449,7 @@ function main() {
         gl.uniform1i(mainLocations.u_UseVertexColors, true);
         gl.uniform1i(mainLocations.u_UseBumpMapping, false);
         gl.uniform1i(mainLocations.u_ShowHeightMap, false);
+        gl.uniform1i(mainLocations.u_UseShadow, shadowParams.enabled);
         break;
       case 'bump':
         // This matches the C++ bump_fragment_shader exactly
@@ -353,6 +461,7 @@ function main() {
         gl.uniform1i(mainLocations.u_UseBumpMapping, true);
         gl.uniform1i(mainLocations.u_ShowHeightMap, false);
         gl.uniform1f(mainLocations.u_BumpStrength, bumpParams.strength);
+        gl.uniform1i(mainLocations.u_UseShadow, false); // No shadow in bump mode
         break;
       case 'heightMap':
         // Show the height map texture directly
@@ -363,6 +472,7 @@ function main() {
         gl.uniform1i(mainLocations.u_UseVertexColors, false);
         gl.uniform1i(mainLocations.u_UseBumpMapping, true);
         gl.uniform1i(mainLocations.u_ShowHeightMap, true);
+        gl.uniform1i(mainLocations.u_UseShadow, false); // No shadow in height map mode
         break;
       case 'reflection':
         gl.uniform3f(mainLocations.u_Color, 1, 1, 1);
@@ -373,6 +483,18 @@ function main() {
         gl.uniform1i(mainLocations.u_UseBumpMapping, false);
         gl.uniform1i(mainLocations.u_ShowHeightMap, false);
         gl.uniform1f(mainLocations.u_ReflectionStrength, reflectionParams.strength);
+        gl.uniform1i(mainLocations.u_UseShadow, shadowParams.enabled);
+        break;
+      case 'shadow':
+        // New shadow visualization mode
+        gl.uniform3f(mainLocations.u_Color, 0.8, 0.8, 0.9);
+        gl.uniform1i(mainLocations.u_UseTexture, false);
+        gl.uniform1i(mainLocations.u_UseReflection, false);
+        gl.uniform1i(mainLocations.u_ShowNormals, false);
+        gl.uniform1i(mainLocations.u_UseVertexColors, true);
+        gl.uniform1i(mainLocations.u_UseBumpMapping, false);
+        gl.uniform1i(mainLocations.u_ShowHeightMap, false);
+        gl.uniform1i(mainLocations.u_UseShadow, true); // Always show shadow in this mode
         break;
     }
 
@@ -388,6 +510,10 @@ function main() {
     gl.activeTexture(gl.TEXTURE2);
     gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubeMapTexture);
     gl.uniform1i(mainLocations.u_CubeMap, 2);
+    
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, shadowFramebuffer.depthTexture);
+    gl.uniform1i(mainLocations.u_ShadowMap, 3);
 
     // Bind vertex buffers
     gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
@@ -418,13 +544,14 @@ function main() {
     gl.vertexAttribPointer(mainLocations.a_Normal, 3, gl.FLOAT, false, 24, 12);
     gl.enableVertexAttribArray(mainLocations.a_Normal);
 
-    // Disable texturing / reflection for cubes
+    // Disable texturing / reflection for cubes, but keep shadow
     gl.uniform1i(mainLocations.u_UseTexture,     false);
     gl.uniform1i(mainLocations.u_UseReflection,  false);
     gl.uniform1i(mainLocations.u_ShowNormals,    false);
     gl.uniform1i(mainLocations.u_UseVertexColors,false);
     gl.uniform1i(mainLocations.u_UseBumpMapping, false);
     gl.uniform1i(mainLocations.u_ShowHeightMap,  false);
+    gl.uniform1i(mainLocations.u_UseShadow, shadowParams.enabled);
 
     cubes.forEach(c => {
       // ---- advance spherical coordinates ----
@@ -445,7 +572,7 @@ function main() {
 
       // ---- build model matrix ----
       modelMatrix.setIdentity();
-      modelMatrix.translate(x, y + 0.7, z);          // 0.7 = Spot’s torso height
+      modelMatrix.translate(x, y + 0.7, z);          // 0.7 = Spot's torso height
       modelMatrix.rotate(c.spin, 1, 1, 0);           // arbitrary axis
       mvpMatrix.set(camera.proj).multiply(camera.view).multiply(modelMatrix);
       normalMatrix.setInverseOf(modelMatrix).transpose();
@@ -456,6 +583,7 @@ function main() {
       gl.uniformMatrix4fv(mainLocations.u_MvpMatrix,    false, mvpMatrix.elements);
       gl.uniformMatrix4fv(mainLocations.u_ModelMatrix,  false, modelMatrix.elements);
       gl.uniformMatrix4fv(mainLocations.u_NormalMatrix, false, normalMatrix.elements);
+      gl.uniformMatrix4fv(mainLocations.u_LightMvpMatrix, false, lightMvpMatrix.elements);
       gl.drawArrays(gl.TRIANGLES, 0, cubeVtx);
     });
   }
@@ -546,7 +674,12 @@ function main() {
         camera.processKeyboard(dt, keys);
         camera.updateMatrices();
 
-        // Clear canvas
+        // First pass - render shadow map (only if shadows enabled)
+        if (shadowParams.enabled) {
+          renderShadowMap();
+        }
+
+        // Second pass - render scene
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         renderSkybox();
         renderObject();
@@ -580,6 +713,11 @@ function setupUIControls() {
   // Reflection enable checkbox
   document.getElementById('enableReflection').addEventListener('change', e => {
     reflectionParams.enabled = e.target.checked;
+  });
+
+  // Shadow enable checkbox
+  document.getElementById('enableShadow').addEventListener('change', e => {
+    shadowParams.enabled = e.target.checked;
   });
 
   // Bump mapping controls
