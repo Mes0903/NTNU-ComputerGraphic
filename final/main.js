@@ -238,6 +238,7 @@ function main() {
     
     // Update matrices
     modelMatrix.setIdentity();
+    modelMatrix.rotate(180, 0, 1, 0);   // face camera (Y-axis)
     mvpMatrix.set(camera.proj).multiply(camera.view).multiply(modelMatrix);
     normalMatrix.setInverseOf(modelMatrix).transpose(); // used to transform normal into world space
 
@@ -479,6 +480,8 @@ function setupUIControls() {
   // Bump mapping controls
   const bumpSlider = document.getElementById('bumpStrength');
   const bumpValue = document.getElementById('bumpValue');
+  bumpParams.strength = parseFloat(bumpSlider.value); 
+  bumpValue.textContent = bumpSlider.value;  
   bumpSlider.addEventListener('input', e => {
     bumpParams.strength = parseFloat(e.target.value);
     bumpValue.textContent = e.target.value;
@@ -487,6 +490,8 @@ function setupUIControls() {
   // Lighting parameter sliders
   const ambientSlider = document.getElementById('ambientStrength');
   const ambientValue = document.getElementById('ambientValue');
+  lightingParams.ambient = parseFloat(ambientSlider.value);
+  ambientValue.textContent = ambientSlider.value;
   ambientSlider.addEventListener('input', e => {
     lightingParams.ambient = parseFloat(e.target.value);
     ambientValue.textContent = e.target.value;
@@ -494,6 +499,8 @@ function setupUIControls() {
 
   const diffuseSlider = document.getElementById('diffuseStrength');
   const diffuseValue = document.getElementById('diffuseValue');
+  lightingParams.diffuse = parseFloat(diffuseSlider.value);
+  diffuseValue.textContent = diffuseSlider.value;
   diffuseSlider.addEventListener('input', e => {
     lightingParams.diffuse = parseFloat(e.target.value);
     diffuseValue.textContent = e.target.value;
@@ -501,6 +508,8 @@ function setupUIControls() {
 
   const specularSlider = document.getElementById('specularStrength');
   const specularValue = document.getElementById('specularValue');
+  lightingParams.specular = parseFloat(specularSlider.value);
+  specularValue.textContent = specularSlider.value;
   specularSlider.addEventListener('input', e => {
     lightingParams.specular = parseFloat(e.target.value);
     specularValue.textContent = e.target.value;
@@ -508,6 +517,8 @@ function setupUIControls() {
 
   const shininessSlider = document.getElementById('shininess');
   const shininessValue = document.getElementById('shininessValue');
+  lightingParams.shininess = parseFloat(shininessSlider.value);
+  shininessValue.textContent = shininessSlider.value;
   shininessSlider.addEventListener('input', e => {
     lightingParams.shininess = parseFloat(e.target.value);
     shininessValue.textContent = e.target.value;

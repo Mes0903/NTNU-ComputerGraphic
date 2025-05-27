@@ -1,6 +1,6 @@
 class Camera {
   constructor(canvas) {
-    this.pos    = [0.0, 1.6,  3.0];
+    this.pos    = [0.0, 0.5, 4.0];
     this.yaw    = -90.0;             // looking toward -Z
     this.pitch  =   0.0;
     this.front  = [0.0, 0.0, -1.0];

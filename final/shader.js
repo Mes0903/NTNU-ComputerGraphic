@@ -59,17 +59,8 @@ void main() {
     float y = N.y;
     float z = N.z;
     
-    // Calculate tangent vector - matching GAMES101 implementation
-    // t = (x*y/sqrt(x*x+z*z), sqrt(x*x+z*z), z*y/sqrt(x*x+z*z))
-    float denominator = sqrt(x*x + z*z);
-    vec3 t;
-    t = vec3(x*y/denominator, denominator, z*y/denominator);
-    t = normalize(t);
-    
-    // Calculate bitangent: b = n cross t
+    vec3 t = normalize(vec3(-z, 0.0, x));
     vec3 b = normalize(cross(N, t));
-    
-    // Create TBN matrix
     mat3 TBN = mat3(t, b, N);
     
     // texture dimensions
